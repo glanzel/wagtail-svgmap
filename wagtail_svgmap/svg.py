@@ -1,6 +1,7 @@
 import re
 
 from six import BytesIO
+from wagtail_svgmap.robinson import Robinson 
 
 try:  # pragma: no cover
     from xml.etree import cElementTree as ET
@@ -57,7 +58,7 @@ class Link(object):
     Wrapper object for link specification.
     """
 
-    def __init__(self, url, target=None):
+    def __init__(self, url, target=None, text="click for more informations"):
         """
         Construct a link.
 
@@ -68,6 +69,7 @@ class Link(object):
         """
         self.url = str(url)
         self.target = target
+        self.text = text
 
     def get_element(self):
         """
@@ -79,6 +81,21 @@ class Link(object):
             '{%s}a' % SVG_NAMESPACE,
             dict(kv for kv in self.get_element_attribs().items() if kv[0] and kv[1])
         )
+
+    def get_infotext(self):
+        element = ET.Element('{%s}title' % SVG_NAMESPACE) #ET.fromstring("<title>"+self.text+"</title>")
+        element.text = self.text
+        return element  #ET.Element('title', tail=self.text)     #"<title>"+self.text+"</title>"
+
+    def get_city(self, lat, lng, color="red"):
+        rob = Robinson(2001,1001, -30, -63)
+        cssPoints = rob.projectToCSS(lat, lng)
+        
+        element = ET.Element('{%s}rect' % SVG_NAMESPACE, {'x': str(cssPoints.x), 'y':str(cssPoints.y), 'width':'10', 'height':'10', 'fill':color}) #ET.fromstring("<title>"+self.text+"</title>")
+        #element.text = self.text
+        return element  #ET.Element('title', tail=self.text)     #"<title>"+self.text+"</title>"
+
+
 
     def get_element_attribs(self):
         """
@@ -92,6 +109,7 @@ class Link(object):
         return {
             ('{%s}href' % XLINK_NAMESPACE): self.url,
             ('{%s}target' % SVG_NAMESPACE): self.target,
+            ('{%s}title' % SVG_NAMESPACE): self.text,
         }
 
 
@@ -121,6 +139,8 @@ def wrap_elements_in_links(tree, id_to_url_map, in_elements=VISIBLE_SVG_TAGS):
         if in_elements and tag_without_ns not in in_elements:
             continue
         url = id_to_url_map.get(elem.get('id'))
+        #print("svg.py: wrap:")
+        #print(url)
         if not url:
             continue
 
@@ -131,6 +151,8 @@ def wrap_elements_in_links(tree, id_to_url_map, in_elements=VISIBLE_SVG_TAGS):
     # Then wrap them!
 
     for elem, url in element_to_url.items():
+        #print(elem)
+        #print(url.get_infotext())
         a_element = url.get_element()
         parent = parent_map[elem]
 
@@ -142,6 +164,11 @@ def wrap_elements_in_links(tree, id_to_url_map, in_elements=VISIBLE_SVG_TAGS):
             raise ValueError("tree broken")
         parent.remove(elem)  # Remove the unwrapped node from the parent
         a_element.append(elem)  # Wrap the node in the A element
+        a_element.append(url.get_infotext())
+        a_element.append(url.get_city(52.520008,13.404954)) # berlin
+        a_element.append(url.get_city(49.246292,-123.116226, "green")) # vancover
+        a_element.append(url.get_city(-33.865143,151.209900, "blue")) # sydney
+
         elem.tail = (elem.tail or '').strip()  # Remove any trailing spaces from the wrapped element
         parent.insert(index, a_element)  # Replace the wrapped node into the parent
         parent_map[elem] = a_element  # Update the parent map
