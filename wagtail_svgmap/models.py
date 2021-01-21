@@ -3,9 +3,9 @@ from __future__ import unicode_literals
 from contextlib import closing
 
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
+#from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
-
+from wagtail.core.fields import RichTextField
 try:
     from wagtail.admin.edit_handlers import FieldPanel
 except ImportError:
@@ -15,7 +15,7 @@ from wagtail_svgmap.mixins import LinkFields
 from wagtail_svgmap.svg import find_ids, fix_dimensions, get_dimensions, Link, serialize_svg, wrap_elements_in_links
 
 
-@python_2_unicode_compatible
+#@python_2_unicode_compatible
 class ImageMap(models.Model):
     """
     The main image map model. Caches the element IDs and prerendered linked SVG.
@@ -137,7 +137,7 @@ class ImageMap(models.Model):
 
     def _render(self):
         links = {
-            region.element_id: Link(url=region.link, target=region.target)
+            region.element_id: Link(url=region.link, target=region.target, text=region.text)
             for region
             in self.regions.select_related('link_page', 'link_document').all()
         }
@@ -161,13 +161,14 @@ class ImageMap(models.Model):
         return self.title
 
 
-@python_2_unicode_compatible
+#@python_2_unicode_compatible
 class Region(LinkFields, models.Model):
     """
     Child model to specify the link target for a given element in a given image map.
     """
 
     image_map = models.ForeignKey(to=ImageMap, related_name='regions', on_delete=models.CASCADE)
+    text = RichTextField(null=True)
     element_id = models.CharField(verbose_name=_('element ID'), max_length=64)
     target = models.CharField(
         verbose_name=_('link target'), blank=True, max_length=64,
@@ -193,4 +194,5 @@ class Region(LinkFields, models.Model):
         FieldPanel('image_map'),
         FieldPanel('element_id'),
         FieldPanel('target'),
+        FieldPanel('text'),
     ] + LinkFields.panels
